@@ -401,29 +401,49 @@ public final class RequireJS {
                         .configure(ALLOW_SINGLE_QUOTES, true);
 
                 ObjectNode requireConfig = mapper.createObjectNode();
-                ObjectNode requireConfigPaths = requireConfig.putObject("paths");
+                ObjectNode packageConfig = requireConfig.putArray("packages").addObject();
 
                 JsonNode jsonNode = mapper.readTree(inputStream);
 
+                // using CommonJS module support: http://requirejs.org/docs/api.html#packages
+
+                // 'name' attribute - key in name-to-prefix mapping
                 String name = jsonNode.get("name").asText();
                 String requireFriendlyName = name.replaceAll("\\.", "-");
+                packageConfig.put("name", requireFriendlyName);
 
-                JsonNode mainJs = jsonNode.get("main");
-                if (mainJs == null)
-                    throw new IllegalArgumentException("no 'main' attribute; cannot generate a config");
+                // 'location' attribute - root path of package (used for resolving $PACKAGE_NAME/some/sub/module)
+                // same semantics as 'paths', despite singular name (uses same underlying code), so
+                // can be used for CDN failover
+                ArrayNode locations = packageConfig.putArray("location");
 
-                if (mainJs.getNodeType() == JsonNodeType.STRING) {
-                    String main = mainJs.asText();
-                    requireConfigPaths.put(requireFriendlyName, mainJsToPathJson(webJar, main, prefixes));
+                for (Map.Entry<String, Boolean> prefix : prefixes) {
+                    locations.add(prefix.getKey() + unprefixedWebjarPath(webJar, ""));
                 }
-                else if (mainJs.getNodeType() == JsonNodeType.ARRAY) {
+
+                // 'main' attribute - the path to a JS file to load on require("$PACKAGE_NAME")
+                // require.js resolves them relative to the locations above
+                JsonNode mainJson = jsonNode.get("main");
+                if (mainJson == null)
+                    // omit the "main" attr.
+                    // require.js will assume "main.js"; this may not be right for packages that
+                    // expect to *only* have specific files included and do not have a well-defined
+                    // top-level module object
+                    return requireConfig;
+
+                String main;
+                if (mainJson.getNodeType() == JsonNodeType.STRING) {
+                    main = mainJson.asText();
+                } else if (mainJson.getNodeType() == JsonNodeType.ARRAY) {
                     ArrayList<String> mainList = new ArrayList<>();
-                    for (JsonNode mainJsonNode : mainJs) {
+                    for (JsonNode mainJsonNode : mainJson) {
                         mainList.add(mainJsonNode.asText());
                     }
-                    String main = getBowerBestMatchFromMainArray(mainList, name);
-                    requireConfigPaths.put(requireFriendlyName, mainJsToPathJson(webJar, main, prefixes));
+                    main = getBowerBestMatchFromMainArray(mainList, name);
+                } else {
+                    throw new IllegalArgumentException("'main' must be string or array");
                 }
+                packageConfig.put("main", requireJsStyleMain(main));
 
                 // todo add dependency shims
 
@@ -518,19 +538,6 @@ public final class RequireJS {
             cleanedVersion = cleanedVersion.substring(2);
         }
         return cleanedVersion;
-    }
-
-    private static JsonNode mainJsToPathJson(Map.Entry<String, String> webJar, String main, List<Map.Entry<String, Boolean>> prefixes) {
-
-        String unprefixedMain = unprefixedWebjarPath(webJar, requireJsStyleMain(main));
-
-        ArrayNode arrayNode = new ArrayNode(JsonNodeFactory.instance);
-
-        for (Map.Entry<String, Boolean> prefix : prefixes) {
-            arrayNode.add(prefix.getKey() + unprefixedMain);
-        }
-
-        return arrayNode;
     }
 
     /**

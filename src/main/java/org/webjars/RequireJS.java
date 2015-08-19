@@ -372,7 +372,7 @@ public final class RequireJS {
      */
     public static ObjectNode getBowerWebJarRequireJsConfig(Map.Entry<String, String> webJar, List<Map.Entry<String, Boolean>> prefixes) {
 
-        String bowerJsonPath = WebJarAssetLocator.WEBJARS_PATH_PREFIX + "/" + webJar.getKey() + "/" + webJar.getValue() + "/" + "bower.json";
+        String bowerJsonPath = WebJarAssetLocator.WEBJARS_PATH_PREFIX + "/" + unprefixedWebjarPath(webJar, "bower.json");
 
         return getWebJarRequireJsConfigFromMainConfig(webJar, prefixes, bowerJsonPath);
     }
@@ -386,7 +386,7 @@ public final class RequireJS {
      */
     public static ObjectNode getNpmWebJarRequireJsConfig(Map.Entry<String, String> webJar, List<Map.Entry<String, Boolean>> prefixes) {
 
-        String packageJsonPath = WebJarAssetLocator.WEBJARS_PATH_PREFIX + "/" + webJar.getKey() + "/" + webJar.getValue() + "/" + "package.json";
+        String packageJsonPath = WebJarAssetLocator.WEBJARS_PATH_PREFIX + "/" + unprefixedWebjarPath(webJar, "package.json");
 
         return getWebJarRequireJsConfigFromMainConfig(webJar, prefixes, packageJsonPath);
     }
@@ -504,17 +504,25 @@ public final class RequireJS {
         return filteredList.get(0);
     }
 
-    private static JsonNode mainJsToPathJson(Map.Entry<String, String> webJar, String main, List<Map.Entry<String, Boolean>> prefixes) {
-        String requireJsStyleMain = main;
+    private static String unprefixedWebjarPath(Map.Entry<String, String> webJar, String path) {
+        return webJar.getKey() + "/" + webJar.getValue() + "/" + path;
+    }
+
+    private static String requireJsStyleMain(String main) {
+        String cleanedVersion = main;
         if (main.endsWith(".js")) {
-            requireJsStyleMain = main.substring(0, main.lastIndexOf(".js"));
+            cleanedVersion = main.substring(0, main.lastIndexOf(".js"));
         }
 
-        if (requireJsStyleMain.startsWith("./")) {
-            requireJsStyleMain = requireJsStyleMain.substring(2);
+        if (cleanedVersion.startsWith("./")) {
+            cleanedVersion = cleanedVersion.substring(2);
         }
+        return cleanedVersion;
+    }
 
-        String unprefixedMain = webJar.getKey() + "/" + webJar.getValue() + "/" + requireJsStyleMain;
+    private static JsonNode mainJsToPathJson(Map.Entry<String, String> webJar, String main, List<Map.Entry<String, Boolean>> prefixes) {
+
+        String unprefixedMain = unprefixedWebjarPath(webJar, requireJsStyleMain(main));
 
         ArrayNode arrayNode = new ArrayNode(JsonNodeFactory.instance);
 
@@ -591,7 +599,7 @@ public final class RequireJS {
         String webJarConfig = "";
 
         // read the webJarConfigs
-        String filename = WebJarAssetLocator.WEBJARS_PATH_PREFIX + "/" + webJar.getKey() + "/" + webJar.getValue() + "/" + "webjars-requirejs.js";
+        String filename = WebJarAssetLocator.WEBJARS_PATH_PREFIX + "/" + unprefixedWebjarPath(webJar, "webjars-requirejs.js");
         InputStream inputStream = RequireJS.class.getClassLoader().getResourceAsStream(filename);
         if (inputStream != null) {
             log.warn("The " + webJar.getKey() + " " + webJar.getValue() + " WebJar is using the legacy RequireJS config.\n" +

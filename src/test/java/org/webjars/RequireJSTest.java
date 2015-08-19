@@ -15,6 +15,10 @@ public class RequireJSTest {
     private static String WEBJAR_URL_PREFIX = "/webjars/";
     private static String WEBJAR_CDN_PREFIX = "http://cdn.jsdelivr.net/webjars/";
 
+    private static ObjectNode getPackageConfig(Map<String, ObjectNode> allJson, String name) {
+        return (ObjectNode) allJson.get(name).get("packages").get(0);
+    }
+
     @Test
     public void should_generate_correct_javascript() {
         String javaScript = RequireJS.getSetupJavaScript(WEBJAR_URL_PREFIX);
@@ -59,52 +63,81 @@ public class RequireJSTest {
     public void should_work_with_bower_webjars() {
         Map<String, ObjectNode> jsonNoCdn = RequireJS.getSetupJson(WEBJAR_URL_PREFIX);
 
+        // check inclusion of a transitive dependency
         // todo: the angular version changes due to a range transitive dependency
+        ObjectNode angularPackage = getPackageConfig(jsonNoCdn, "angular");
+        assertEquals(WEBJAR_URL_PREFIX + "angular/1.4.4/", angularPackage.get("location").get(0).asText());
+        assertEquals("angular", angularPackage.get("main").asText());
 
-        assertEquals(WEBJAR_URL_PREFIX + "angular-bootstrap/0.13.0/ui-bootstrap-tpls", jsonNoCdn.get("angular-bootstrap").get("paths").get("angular-bootstrap").get(0).asText());
-        assertEquals(WEBJAR_URL_PREFIX + "angular/1.4.4/angular", jsonNoCdn.get("angular").get("paths").get("angular").get(0).asText());
+        // full check of the direct dependency
+        String expectedPath = "angular-bootstrap/0.13.0/";
+        ObjectNode packageNoCdn = getPackageConfig(jsonNoCdn, "angular-bootstrap");
+
+        assertEquals(1, packageNoCdn.get("location").size());
+        assertEquals(WEBJAR_URL_PREFIX + expectedPath, packageNoCdn.get("location").get(0).asText());
+        assertEquals("ui-bootstrap-tpls", packageNoCdn.get("main").asText());
 
         Map<String, ObjectNode> jsonWithCdn = RequireJS.getSetupJson(WEBJAR_CDN_PREFIX, WEBJAR_URL_PREFIX);
+        ObjectNode packageWithCdn = getPackageConfig(jsonWithCdn, "angular-bootstrap");
 
-        assertEquals(WEBJAR_CDN_PREFIX + "angular-bootstrap/0.13.0/ui-bootstrap-tpls", jsonWithCdn.get("angular-bootstrap").get("paths").get("angular-bootstrap").get(0).asText());
-        assertEquals(WEBJAR_URL_PREFIX + "angular-bootstrap/0.13.0/ui-bootstrap-tpls", jsonWithCdn.get("angular-bootstrap").get("paths").get("angular-bootstrap").get(1).asText());
+        assertEquals(2, packageWithCdn.get("location").size());
+        assertEquals(WEBJAR_CDN_PREFIX + expectedPath, packageWithCdn.get("location").get(0).asText());
+        assertEquals(WEBJAR_URL_PREFIX + expectedPath, packageWithCdn.get("location").get(1).asText());
+        assertEquals("ui-bootstrap-tpls", packageWithCdn.get("main").asText());
     }
 
     @Test
     public void should_pick_right_script_in_bower_webjars() {
         Map<String, ObjectNode> jsonNoCdn = RequireJS.getSetupJson(WEBJAR_URL_PREFIX);
+        ObjectNode packageNoCdn = getPackageConfig(jsonNoCdn, "angular-schema-form");
+        String expectedPath = "angular-schema-form/0.8.2/";
 
-        assertEquals(WEBJAR_URL_PREFIX + "angular-schema-form/0.8.2/dist/schema-form", jsonNoCdn.get("angular-schema-form").get("paths").get("angular-schema-form").get(0).asText());
+        assertEquals(1, packageNoCdn.get("location").size());
+        assertEquals(WEBJAR_URL_PREFIX + expectedPath, packageNoCdn.get("location").get(0).asText());
+        assertEquals("dist/schema-form", packageNoCdn.get("main").asText());
 
         Map<String, ObjectNode> jsonWithCdn = RequireJS.getSetupJson(WEBJAR_CDN_PREFIX, WEBJAR_URL_PREFIX);
+        ObjectNode packageWithCdn = getPackageConfig(jsonWithCdn, "angular-schema-form");
 
-        assertEquals(WEBJAR_CDN_PREFIX + "angular-schema-form/0.8.2/dist/schema-form", jsonWithCdn.get("angular-schema-form").get("paths").get("angular-schema-form").get(0).asText());
-        assertEquals(WEBJAR_URL_PREFIX + "angular-schema-form/0.8.2/dist/schema-form", jsonWithCdn.get("angular-schema-form").get("paths").get("angular-schema-form").get(1).asText());
+        assertEquals(2, packageWithCdn.get("location").size());
+        assertEquals(WEBJAR_CDN_PREFIX + expectedPath, packageWithCdn.get("location").get(0).asText());
+        assertEquals(WEBJAR_URL_PREFIX + expectedPath, packageWithCdn.get("location").get(1).asText());
+        assertEquals("dist/schema-form", packageWithCdn.get("main").asText());
     }
 
     @Test
     public void should_work_with_npm_webjars() {
         Map<String, ObjectNode> jsonNoCdn = RequireJS.getSetupJson(WEBJAR_URL_PREFIX);
+        ObjectNode packageNoCdn = getPackageConfig(jsonNoCdn, "angular-pouchdb");
+        String expectedPath = "angular-pouchdb/2.0.8/";
 
-        assertEquals(WEBJAR_URL_PREFIX + "angular-pouchdb/2.0.8/dist/angular-pouchdb", jsonNoCdn.get("angular-pouchdb").get("paths").get("angular-pouchdb").get(0).asText());
+        assertEquals(1, packageNoCdn.get("location").size());
+        assertEquals(WEBJAR_URL_PREFIX + expectedPath, packageNoCdn.get("location").get(0).asText());
+        assertEquals("dist/angular-pouchdb", packageNoCdn.get("main").asText());
 
         Map<String, ObjectNode> jsonWithCdn = RequireJS.getSetupJson(WEBJAR_CDN_PREFIX, WEBJAR_URL_PREFIX);
+        ObjectNode packageWithCdn = getPackageConfig(jsonWithCdn, "angular-pouchdb");
 
-        assertEquals(WEBJAR_CDN_PREFIX + "angular-pouchdb/2.0.8/dist/angular-pouchdb", jsonWithCdn.get("angular-pouchdb").get("paths").get("angular-pouchdb").get(0).asText());
-        assertEquals(WEBJAR_URL_PREFIX + "angular-pouchdb/2.0.8/dist/angular-pouchdb", jsonWithCdn.get("angular-pouchdb").get("paths").get("angular-pouchdb").get(1).asText());
+        assertEquals(2, packageWithCdn.get("location").size());
+        assertEquals(WEBJAR_CDN_PREFIX + expectedPath, packageWithCdn.get("location").get(0).asText());
+        assertEquals(WEBJAR_URL_PREFIX + expectedPath, packageWithCdn.get("location").get(1).asText());
+        assertEquals("dist/angular-pouchdb", packageWithCdn.get("main").asText());
     }
 
     @Test
     public void should_fix_npm_module_names() {
         Map<String, ObjectNode> jsonNoCdn = RequireJS.getSetupJson(WEBJAR_URL_PREFIX);
 
-        assertEquals(WEBJAR_URL_PREFIX + "validate.js/0.8.0/validate", jsonNoCdn.get("validate.js").get("paths").get("validate-js").get(0).asText());
+        assertEquals("validate-js", getPackageConfig(jsonNoCdn, "validate.js").get("name").asText());
     }
 
     @Test
     public void should_be_empty_if_no_main() {
         Map<String, ObjectNode> json = RequireJS.getSetupJson(WEBJAR_URL_PREFIX);
-        assertNull(json.get("babel-runtime"));
+        ObjectNode packageConf = getPackageConfig(json, "babel-runtime");
+        assertNull(packageConf.get("main"));
+        assertEquals(1, packageConf.get("location").size());
+        assertEquals(WEBJAR_URL_PREFIX + "babel-runtime/5.8.19/", packageConf.get("location").get(0).asText());
     }
 
 }
